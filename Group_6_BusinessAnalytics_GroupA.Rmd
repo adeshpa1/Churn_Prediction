@@ -1,0 +1,223 @@
+---
+title: "Churn Analysis for ABC Wireless"
+author: "Group 6"
+date: "11/27/2019"
+output:
+  html_document: default
+  word_document: default
+---
+
+Libraries required for Modelling.
+
+```{r}
+library(C50)
+library(pROC)
+library(caret)
+library(corrplot)
+```
+
+Loading the churn data from c50 library.
+
+```{r}
+##Selecting data
+data(churn)
+
+## Creating subset of actual data for Model 1
+Train <- churnTrain
+
+## Validation Data for Model 1
+Valid <- churnTest
+
+# Swaping levels of Churn attribute based on information provided so that we find the probability of Churn (Yes) while modeling.
+
+Train$churn<- factor(Train$churn,levels(Train$churn)[c(2,1)])  
+Valid$churn<- factor(Valid$churn,levels(Valid$churn)[c(2,1)])
+```
+
+Model 1 : Assuming all the available attributes are significant for the Churn prediction.
+
+```{r}
+Train_1 <- Train
+Valid_1 <- Valid
+
+## Building a Logistic regression model using train data.
+
+Model_1 <- glm(churn~.,data = Train_1,family = binomial(link='logit'))
+
+## Predict values using based on training given to model
+Model_Pre <- predict(Model_1,newdata = Valid_1,type = 'response')
+
+## Detail of model built
+summary(Model_1)
+```
+
+There are certain variables having very less z value and thus can be excluded while model building.
+
+The States and Area Code do not provide any Statistical Significance as per the above model.
+
+```{r}
+## Finding accuracy for the model
+## Formulated function to run a sequence to find probability and its accuracy
+
+seq1 <- data.frame(cutoff = seq(.5,0.9,0.1),accuracy=rep(0,5))
+
+for(i in 1:5)
+{
+  Model_Pre_lables <- as.factor(ifelse(Model_Pre>seq1$cutoff[i],"yes","no") )
+  seq1[i,2]<-confusionMatrix(Model_Pre_lables,Valid_1$churn)$overall[1]
+}
+
+## shows threshold of probality with its accuracy
+seq1
+
+## Show predition of each entry in validation data
+Model_Pre_lables <- as.factor(ifelse(Model_Pre>seq1$cutoff[which.max(seq1$accuracy)] ,"yes","no")) 
+
+## Gives overall view of models performance
+confusionMatrix(Model_Pre_lables,Valid_1$churn)
+
+roc(Valid_1$churn,Model_Pre)
+plot(roc(Valid_1$churn,Model_Pre))
+```
+
+Based on the information of the gathered from above model we see accuracy as 87.34%, with high sensitivity and low level of specificity.
+ROC is 83.31%.
+
+
+**Comments** Since we have build model based on all attributes of data, we further analyze to see if there are possibilities to reduce certain variable and check the predictive information of the model.
+
+
+Model 2: Building a simplified model with reduced number of variables.
+
+```{r}
+## Creating subset of actual data
+
+Train_2<- Train[,-c(1,3)]  
+Valid_2<- Valid[,-c(1,3)]
+
+## To find if their is any corelation between vaiables by excluding catagorical variable.
+
+corrplot(cor(Train_2[,-c(2,3,18)]),type = "lower") 
+```
+
+** Comments ** :  We can infer that total minutes and total charge for day,evening,night and international are highly correlated. This implies that higher the minute, higher is the charges- thus we can exclude either one of them.
+
+```{r}
+#Excluding all minute across all category 
+
+Train_2<- Train_2[,-c(5,8,11,14)] 
+Valid_2<- Valid_2[,-c(5,8,11,14)]
+
+## Building logistic regression model using altered train data. 
+
+Model_2 <- glm(churn~.,data = Train_2,family = binomial(link='logit'))
+
+## Predict values using based on training given to model
+
+Model_Pre_2 <- predict(Model_2,newdata = Valid_2,type = 'response')
+summary(Model_2)
+
+## Finding accuracy for the model
+seq2 <- data.frame(cutoff = seq(.5,0.9,0.1),accuracy=rep(0,5))
+
+for(i in 1:5)
+{
+  Model_Pre_lables_2 <- as.factor(ifelse(Model_Pre_2>seq2$cutoff[i],"yes","no") )
+  seq2[i,2]<-confusionMatrix(Model_Pre_lables_2,Valid_2$churn)$overall[1]
+  
+}
+
+seq2
+
+Model_Pre_lables_2 <- as.factor(ifelse(Model_Pre_2>seq2$cutoff[which.max(seq2$accuracy)] ,"yes","no") ) 
+
+## Overall view of model performance
+
+confusionMatrix(Model_Pre_lables_2,Valid_2$churn) 
+
+roc(Valid_2$churn,Model_Pre_2)
+plot(roc(Valid_2$churn,Model_Pre_2)) 
+```
+
+By building a model with lesser number of variables we can see that the predictive capability of the model have increased.
+
+This can be proven by the AIC values of the model.
+AIC:
+Model 1 = 2210
+Model 2 = 2187
+
+Also the confusion matrix values have improved.
+
+##Comments** : We can infer by reducing variables we not only increase the AUC of the model we are reducing complexity of the model
+
+
+Model 3 : Excluding the attributes with negligible significance.
+
+Building model to reduce variable which are least significant and see we have any change in AUC of the model
+
+```{r}
+Train_3<- Train[,-c(1:3,7,8,10,11,13,14,16)] 
+Valid_3<- Valid[,-c(1:3,7,8,10,11,13,14,16)] 
+
+levels(Train_3$churn)
+
+Model_3 <- glm(churn~.,data = Train_3,family = binomial(link='logit')) 
+Model_Pre_3 <- predict(Model_3,newdata = Valid_3,type = 'response') 
+
+summary(Model_3)
+
+## Finding accuracy for the model
+seq3 <- data.frame(cutoff = seq(.5,0.9,0.1),accuracy=rep(0,5))
+
+for(i in 1:5)
+{
+  Model_Pre_lables_3 <- as.factor(ifelse(Model_Pre_3>seq3$cutoff[i],"yes","no"))
+  seq3[i,2]<-confusionMatrix(Model_Pre_lables_3,Valid_3$churn)$overall[1]
+}
+
+seq3
+
+## Show predition of each entry in validation data
+Model_Pre_lables_3 <- as.factor(ifelse(Model_Pre_3>seq3$cutoff[which.max(seq3$accuracy)] ,"yes","no")) 
+
+confusionMatrix(Model_Pre_lables_3,Valid_3$churn)
+
+roc(Valid_3$churn,Model_Pre_3)
+plot(roc(Valid_3$churn,Model_Pre_3)) 
+
+```
+
+##***Comment*** : AUC of the model is same with less no. of variable with threshold as :0.6
+
+By looking at the significance of the varibale after the model is built all the considered attributes are significant hence we cannot reduce any other variable.
+
+The AIC value do not show much deviation between the model 2 and 3 thus we have considered this Model 3 as our final model with 9 variables to predict the churn.
+
+The ROC we computed is 84.13% with good confusion matrix calculations.
+
+## Predicting for Customers_To_Predict
+
+```{r}
+#write.csv(Customers_To_Predict, "Customers_To_Predict.csv")
+
+Customers_To_Predict_data <- read.csv("Customers_To_Predict.csv")
+
+Customers_To_Predict <- Customers_To_Predict_data[,-c(1:3,7,8,10,11,13,14,16)]
+
+Model_Pre_Test <- predict(Model_3,newdata = Customers_To_Predict,type = 'response')
+
+Probablity_Churn <- Model_Pre_Test
+
+Model_Pre_lables_Test <- as.data.frame(as.factor(ifelse(Model_Pre_Test>.6,"yes","no")))
+
+Probablity_Churn <- cbind(Probablity_Churn, Model_Pre_lables_Test)
+colnames(Probablity_Churn) <- c("Probability", "Churn")
+
+Probablity_Churn <- cbind(Customers_To_Predict_data, Probablity_Churn)
+
+#write.csv(Probablity_Churn,"Prediction.csv")
+
+prop.table(table(Model_Pre_lables_Test))*100
+```
+
+Thus we can see the churn rate for Test data set is approximately 3%.

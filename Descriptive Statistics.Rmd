@@ -1,0 +1,59 @@
+---
+title: "Descriptive Analysis"
+author: "Group 7"
+date: "12/1/2019"
+output: html_document
+---
+
+Libraries required for Modelling.
+
+```{r}
+library(C50)
+library(dplyr)
+library(ggplot2)
+```
+
+Loading the churn data from c50 library.
+
+```{r}
+##Selecting data
+data(churn)
+
+## Creating subset of actual data for Model 1
+Train <- churnTrain
+```
+
+Churn rate based on the Number of Calls to the Customer Care.
+
+```{r}
+ChurnOnServiceRate <- Train %>% group_by(Train$number_customer_service_calls, Train$churn) %>% summarise(count = n()) %>% mutate(prop = count / sum(count) * 100)
+
+ChurnOnServiceRate
+```
+
+Churn rate based on the State.
+
+```{r}
+ChurnOnStates <- Train %>% group_by(Train$state, Train$churn) %>% summarise(count = n()) %>% mutate(prop = count / sum(count) * 100)
+```
+
+```{r}
+Area_Code <- as.factor(Train$area_code)
+Churn <- as.factor(Train$churn)
+Area_Service_Churn <- cbind.data.frame(Area_Code,Service_Calls = Train$number_customer_service_calls, Churn)
+
+#Churn on Area code wise Churn rate based on Service Calls
+ggplot(Area_Service_Churn) +
+  aes(x = Service_Calls, fill = Churn) +
+  geom_bar() +
+  scale_fill_hue() +
+  theme_minimal() +
+  facet_wrap(vars(Area_Code))
+
+#graph for state wise churn
+ggplot(Train, 
+       aes(x = state, 
+           fill = churn)) + 
+  geom_bar(position = "stack")
+
+```
